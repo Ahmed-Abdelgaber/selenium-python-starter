@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+*.egg-info/
+.venv/
+env/
+venv/
+
+# Pytest
+.pytest_cache/
+.cache/
+*.pytest_cache/
+htmlcov/
+
+# Env & IDE
+.env
+*.env
+.idea/
+.vscode/
+
+# Artifacts
+artifacts/
+reports/
+coverage/
