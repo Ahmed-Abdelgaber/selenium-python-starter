@@ -2,6 +2,8 @@
 from selenium.webdriver.common.by import By
 from src.core.base_page import BasePage
 
+
+
 class QuestCasLoginPage(BasePage):
     URL = (
         "https://auth2.questdiagnostics.com/cas/login"
@@ -11,6 +13,9 @@ class QuestCasLoginPage(BasePage):
     # keep selectors conservative to avoid brittleness
     USERNAME = (By.CSS_SELECTOR, "input#username, input[name='username'], input[type='text']")
     PASSWORD = (By.CSS_SELECTOR, "input#password, input[name='password'], input[type='password']")
+    LOGIN_BUTTON = (By.CSS_SELECTOR, "button#signin, input[type='submit']")
+    COOKIES_BUTTON = (By.CSS_SELECTOR, "button#onetrust-accept-btn-handler")
+    GREETING_PHRASE = (By.CSS_SELECTOR, ".qd-header__title b, .qd-header__title strong")
 
     def open(self) -> "QuestCasLoginPage":
         return self.go_to(self.URL)
@@ -18,20 +23,16 @@ class QuestCasLoginPage(BasePage):
     def login(self, username: str, password: str) -> None:
         self.type(*self.USERNAME, username)
         self.type(*self.PASSWORD, password)
-        self.click(By.CSS_SELECTOR, "button#signin, input[type='submit']")
+        self.click(*self.LOGIN_BUTTON)
+        if self.find(*self.COOKIES_BUTTON):
+            self.click(*self.COOKIES_BUTTON)
     
     def is_loaded(self) -> bool:
-        # URL contains host + path
-        self.wait.until(lambda d: "auth2.questdiagnostics.com" in d.current_url and "cas/login" in d.current_url)
-        # if a field is present, great—otherwise consider URL check sufficient
-        try:
-            self.wait_visible(*self.USERNAME)
-        except Exception:
-            try:
-                self.wait_visible(*self.PASSWORD)
-            except Exception:
-                pass
-        return True
-      
+        return self.find(*self.LOGIN_BUTTON) is not None
+    
     def is_logged(self) -> bool:
-      return True
+        self.wait_visible(*self.GREETING_PHRASE)
+        name = self.text_of(*self.GREETING_PHRASE)
+        if name == "Suresh Neelagaru":
+            return True
+        return False
