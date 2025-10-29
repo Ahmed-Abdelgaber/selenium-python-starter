@@ -3,7 +3,7 @@ from src.core.base_page import BasePage
 
 class QuestResultsPage(BasePage):
   RESULTS_NAV_BUTTON = (By.CSS_SELECTOR, "button#route-results-io2")
-  EXTERNAL_HISTORICAL_RESULTS_BUTTON = (By.CSS_SELECTOR, "div#mat-tab-label-0-2")
+  EXTERNAL_HISTORICAL_RESULTS_BUTTON = (By.CSS_SELECTOR, "div.ng-star-inserted[data-testid='non-practice-historical-tab']")
   PATIENT_NAME_FIELD = (By.CSS_SELECTOR, "input[type='text'], input[data-placeholder='Patient Name']")
   PATIENT_DOB_FIELD = (By.CSS_SELECTOR, "input[type='text'], input[data-placeholder='Patient DOB']")
   SEARCH_BUTTON = (By.CSS_SELECTOR, "button#nonPracticePatientSearch")
