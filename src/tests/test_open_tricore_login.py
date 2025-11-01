@@ -27,9 +27,7 @@ def test_open_tricore_login_page():
             FIRST_NAME,
             LAST_NAME,
             DOB,
-            GENDER,
-            per_page=PER_PAGE,
-            total_items=TOTAL_ITEMS,
+            GENDER
         )
     except RetryError as exc:
         pytest.fail(f"Tricore flow failed after retries: {exc.exceptions}")

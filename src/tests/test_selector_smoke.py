@@ -31,19 +31,11 @@ def test_print_button_click():
     opts.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
     driver = webdriver.Chrome(options=opts)
 
-    btn = WebDriverWait(driver, 5).until(
-        EC.element_to_be_clickable((By.CSS_SELECTOR, "mat-select[aria-label='Items per page:']"))
-    )
+    btn = (By.CSS_SELECTOR, "#resultGrid1 .k-pager-numbers button[title='Page 2']")
 
-    driver.execute_script("arguments[0].scrollIntoView({block:\"center\"});", btn)
+    # driver.execute_script("arguments[0].scrollIntoView({block:\"center\"});", btn)
     try:
         btn.click()
-        
-        btn2 = WebDriverWait(driver, 5).until(
-        EC.element_to_be_clickable((By.XPATH, "//div[contains(@class,'mat-select-panel') and @aria-label='Items per page:']//mat-option//span[normalize-space()='100']"))
-        )
-        
-        btn2.click()
         
     except Exception:
         driver.execute_script("arguments[0].click()", btn)

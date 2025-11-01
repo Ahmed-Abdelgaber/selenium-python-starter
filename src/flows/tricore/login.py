@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from selenium.common.exceptions import TimeoutException
+import time
 
 from src.core.logger import get_logger
 from src.pages.tricore.tricore_login_page import TricoreLoginPage
@@ -31,6 +32,7 @@ class TricoreLoginFlow:
         try:
             if page.is_logged():
                 self.logger.info("Tricore login successful for '%s'", username)
+                time.sleep(5)  # wait for potential redirects after login
             else:
                 self.logger.error("Tricore login status check returned False for '%s'", username)
                 raise AssertionError("Tricore login validation failed")

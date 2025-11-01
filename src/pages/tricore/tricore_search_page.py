@@ -1,5 +1,6 @@
 from selenium.webdriver.common.by import By
 from src.core.base_page import BasePage
+import time
 
 class TricoreSearchPage(BasePage):
   SEARCH_PATIENT_BUTTON = (By.XPATH, "//span[contains(@class,'mdc-button__label')]"
@@ -13,15 +14,16 @@ class TricoreSearchPage(BasePage):
   SEARCH_BUTTON = (By.CSS_SELECTOR, "button[type='submit']")
   
   def open_search_patient(self) -> None:
-      self.click(*self.SEARCH_PATIENT_BUTTON)
+    self.click(*self.SEARCH_PATIENT_BUTTON)
 
   def search_patient(self, first_name: str, last_name: str, dob: str, gender: str) -> None:
-      self.type(*self.FIRST_NAME, first_name)
-      self.type(*self.LAST_NAME, last_name)
-      self.type(*self.DOB, dob)
-      self.click(*self.GENDER)
-      if gender == 'male':
-        self.click(*self.MALE_OPTION)
-      else:
-        self.click(*self.FEMALE_OPTION)
-      self.click(*self.SEARCH_BUTTON)
+    self.type(*self.FIRST_NAME, first_name)
+    self.type(*self.LAST_NAME, last_name)
+    self.type(*self.DOB, dob)
+    self.click(*self.GENDER)
+    if gender == 'male':
+      self.click(*self.MALE_OPTION)
+    else:
+      self.click(*self.FEMALE_OPTION)
+    self.click(*self.SEARCH_BUTTON)
+    time.sleep(10)
