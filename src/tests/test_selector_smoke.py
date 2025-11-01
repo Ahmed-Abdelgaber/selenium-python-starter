@@ -31,9 +31,11 @@ def test_print_button_click():
     opts.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
     driver = webdriver.Chrome(options=opts)
 
-    btn = (By.CSS_SELECTOR, "#resultGrid1 .k-pager-numbers button[title='Page 2']")
+    btn = (By.CSS_SELECTOR, "#resultGrid1 button#printReport2")
 
-    # driver.execute_script("arguments[0].scrollIntoView({block:\"center\"});", btn)
+    btn = WebDriverWait(driver, 10).until(
+        EC.element_to_be_clickable(btn)
+    )
     try:
         btn.click()
         

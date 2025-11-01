@@ -11,14 +11,14 @@ class TricoreResultsPage(BasePage):
     ITEMS_NUMBER = (By.XPATH, "#resultGrid1 kendo-pager-info")
     NEXT_PAGE_BUTTON = (By.CSS_SELECTOR, "#resultGrid1 kendo-pager-next-buttons button[aria-label='Go to the next page']")
     SELECT_ALL_CHECKBOX = (By.XPATH, "//input[@id='selectAllCheckboxId4']")
-    PRINT_ALL_DOWNLOAD_BUTTON = (By.CSS_SELECTOR, "button#printReport2, button[mattooltip='Print Selected Results: alt + p']")
+    PRINT_ALL_DOWNLOAD_BUTTON = (By.CSS_SELECTOR, "#resultGrid1 button#printReport2")
     
     def has_results(self) -> bool:
         return not self.find(*self.NO_SEARCH_RESULTS_MESSAGE)
         
     def select_first_result(self):
-        self.click(*self.CHECKBOX, True)
-        self.click(*self.RESULTS_BUTTON, True)
+        self.click(*self.CHECKBOX)
+        self.click(*self.RESULTS_BUTTON)
         
     def set_page_size_to_40(self):
         self.click(*self.PAGE_SIZE_DROPDOWN)
