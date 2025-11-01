@@ -16,6 +16,7 @@ class Config:
     window_height: int
     wait_timeout: int
     page_load_timeout: int
+    download_quest_dir: str
 
 def load_config(cli: dict | None = None) -> Config:
     """
@@ -34,6 +35,7 @@ def load_config(cli: dict | None = None) -> Config:
         "window_height": int(_env("WINDOW_HEIGHT", "800")),
         "wait_timeout": int(_env("WAIT_TIMEOUT", "10")),
         "page_load_timeout": int(_env("PAGE_LOAD_TIMEOUT", "30")),
+        "download_quest_dir": _env("DOWNLOAD_QUEST_DIR", "/downloads/quest"),
     }
 
     cli = cli or {}

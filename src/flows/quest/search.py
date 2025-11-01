@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from src.core.logger import get_logger
-from src.pages.quest.quest_results_page import QuestResultsPage
+from src.pages.quest.quest_search_page import QuestSearchPage
 
 
 class QuestSearchFlow:
@@ -9,15 +9,15 @@ class QuestSearchFlow:
         self.driver = driver
         self.logger = get_logger("flows.quest.search")
 
-    def open_results_page(self) -> QuestResultsPage:
+    def open_results_page(self) -> QuestSearchPage:
         self.logger.info("Opening Quest results page")
-        page = QuestResultsPage(self.driver)
+        page = QuestSearchPage(self.driver)
         page.open_results_page()
         page.is_loaded()
         self.logger.info("Quest results page loaded")
         return page
 
-    def search_and_open(self, patient_name: str, patient_dob: str) -> QuestResultsPage:
+    def search_and_open(self, patient_name: str, patient_dob: str) -> QuestSearchPage:
         page = self.open_results_page()
 
         self.logger.info("Searching for patient '%s' with DOB '%s'", patient_name, patient_dob)

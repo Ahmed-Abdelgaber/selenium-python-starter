@@ -1,10 +1,11 @@
 from selenium.webdriver.common.by import By
 from src.core.base_page import BasePage
 
-class TricoreResultsPage(BasePage):
-  SEARCH_PATIENT_BUTTON = (By.CSS_SELECTOR, "button.mdc-button--raised:has(span.mdc-button__label:contains('Patient Search'))")
-  FIRST_NAME = (By.ID, "firstName")
-  LAST_NAME = (By.ID, "lastName")
+class TricoreSearchPage(BasePage):
+  SEARCH_PATIENT_BUTTON = (By.XPATH, "//span[contains(@class,'mdc-button__label')]"
+      "[normalize-space(string(.))='Patient Search']/ancestor::button[1]")
+  FIRST_NAME = (By.CSS_SELECTOR, "input#firstName")
+  LAST_NAME = (By.CSS_SELECTOR, "input#lastName")
   DOB = (By.CSS_SELECTOR, "input.mat-datepicker-input#mat-input-2")
   GENDER = (By.CSS_SELECTOR, "mat-select[role='combobox'][id='mat-select-0']")
   MALE_OPTION = (By.XPATH, "//mat-option[.//span[text()='Male']]")
