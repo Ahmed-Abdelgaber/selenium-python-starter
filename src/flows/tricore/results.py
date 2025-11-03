@@ -1,46 +1,92 @@
 from __future__ import annotations
 
-import math
-import re
 import time
 
+from src.core.config import load_config
 from src.core.logger import get_logger
+from src.core.pdf_download import (
+    allow_downloads_cdp,
+    clean_download_dir,
+    snapshot_downloads,
+    wait_for_new_download,
+)
 from src.pages.tricore.tricore_results_page import TricoreResultsPage
+
 
 class TricoreResultsFlow:
     def __init__(self, driver) -> None:
         self.driver = driver
         self.logger = get_logger("flows.tricore.results")
+        self.download_dir = load_config().download_tricore_dir
 
-        
-    def search_and_download(self, per_page: int = 10, total_items: int | None = None) -> TricoreResultsPage:
+    def search_and_download(
+        self,
+        per_page: int = 10,
+        total_items: int | None = None,
+    ) -> list[str]:
         self.logger.info("Selecting first Tricore result")
         results_page = TricoreResultsPage(self.driver)
         time.sleep(10)
         results_page.select_first_result()
         time.sleep(15)
 
-    #   items_text = results_page.get_items_number_text()
-        items_text = '1-10 of 80 items'  # Temporary fix for getting items number text
-        self.logger.info("Tricore items summary: '%s'", items_text)
-        match = re.search(r"\bof\s+(\d{1,3}(?:,\d{3})*)\s+items?\b", items_text)
-        if match:
-            total_items = int(match.group(1).replace(",", ""))
+        self.logger.info("Preparing Tricore download directory")
+        allow_downloads_cdp(self.driver, self.download_dir)
+        clean_download_dir(self.download_dir, only_extensions=(".pdf",))
 
-        if not total_items:
-            total_items = per_page
+        last_handle = self.driver.current_window_handle
 
-        loops = max(1, math.ceil(total_items / per_page))
+        downloaded_files: list[str] = []
 
-        for page_index in range(loops):
-            self.logger.info(
-                "Selecting Tricore results on page %d of %d", page_index + 1, loops
-            )
+        page_index = 0
+        while True:
+            page_index += 1
+            self.logger.info("Selecting Tricore results on page %d", page_index)
             results_page.select_all_results()
-            if page_index < loops - 1:
-                self.logger.info("Moving to next Tricore results page")
-                results_page.go_to_next_page()
+            time.sleep(3)
 
-        self.logger.info("Downloading selected Tricore results")
-        results_page.download_selected_results()
-        return results_page
+            before_files = snapshot_downloads(self.download_dir)
+            pdf_handle = results_page.download_selected_results()
+            downloaded_path = wait_for_new_download(
+                self.download_dir, before_files, timeout=120
+            )
+
+            if pdf_handle:
+                try:
+                    self.driver.switch_to.window(pdf_handle)
+                    time.sleep(3)
+                finally:
+                    try:
+                        self.driver.close()
+                    except Exception:
+                        pass
+                    try:
+                        self.driver.switch_to.window(last_handle)
+                    except Exception:
+                        pass
+
+            if not downloaded_path:
+                self.logger.warning(
+                    "Timed out waiting for Tricore PDF download on page %d",
+                    page_index + 1,
+                )
+            else:
+                downloaded_files.append(downloaded_path)
+                self.logger.info(
+                    "Tricore PDF for page %d saved to '%s'",
+                    page_index + 1,
+                    downloaded_path,
+                )
+
+            if results_page.go_to_next_page():
+                self.logger.info("Moving to next Tricore results page")
+                time.sleep(5)
+                last_handle = self.driver.current_window_handle
+            else:
+                self.logger.info("Reached last Tricore results page")
+                break
+
+        if not downloaded_files:
+            raise TimeoutError("No Tricore PDFs were downloaded during the flow")
+
+        return downloaded_files

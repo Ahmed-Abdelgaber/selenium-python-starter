@@ -1,7 +1,9 @@
-# src/pages/quest_login_page.py
-from selenium.webdriver.common.by import By
-from src.core.base_page import BasePage
+from __future__ import annotations
 
+from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.common.by import By
+
+from src.core.base_page import BasePage
 
 
 class QuestCasLoginPage(BasePage):
@@ -24,15 +26,37 @@ class QuestCasLoginPage(BasePage):
         self.type(*self.USERNAME, username)
         self.type(*self.PASSWORD, password)
         self.click(*self.LOGIN_BUTTON)
-        if self.find(*self.COOKIES_BUTTON):
+        try:
             self.click(*self.COOKIES_BUTTON)
-    
+        except TimeoutException:
+            pass
+
     def is_loaded(self) -> bool:
         return self.find(*self.LOGIN_BUTTON) is not None
-    
-    def is_logged(self) -> bool:
-        self.wait_visible(*self.GREETING_PHRASE)
-        name = self.text_of(*self.GREETING_PHRASE)
-        if name == "Suresh Neelagaru":
+
+    def switch_to_portal_window(self) -> None:
+        """
+        Ensure we are focused on the Quanum portal window once CAS completes.
+        Quest may keep the same tab or spawn a new one depending on SSO rules.
+        """
+        try:
+            self.wait.until(lambda drv: len(drv.window_handles) >= 1)
+        except TimeoutException:
+            return
+
+        try:
+            newest = self.driver.window_handles[-1]
+            if self.driver.current_window_handle != newest:
+                self.driver.switch_to.window(newest)
+        except Exception:
+            pass
+
+    def wait_for_portal_navigation(self) -> bool:
+        """Block until the Quanum portal finishes redirecting away from CAS."""
+        try:
+            self.wait.until(
+                lambda drv: "quanum.questdiagnostics.com" in drv.current_url.lower()
+            )
             return True
-        return False
+        except TimeoutException:
+            return False

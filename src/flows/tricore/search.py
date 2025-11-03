@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from selenium.common.exceptions import TimeoutException
 
 from src.core.logger import get_logger
@@ -41,6 +43,20 @@ class TricoreSearchFlow:
             dob,
             gender_value or "unspecified",
         )
-        page.search_patient(first_name, last_name, dob, gender_value)
+        formatted_dob = self._format_mmddyyyy(dob)
+        page.search_patient(first_name, last_name, formatted_dob, gender_value)
         self.logger.info("Tricore search completed")
 
+    @staticmethod
+    def _format_mmddyyyy(value: str) -> str:
+        digits = re.sub(r"[^\d]", "", value or "")
+        if len(digits) != 8:
+            raise ValueError("Tricore DOB must contain 8 digits (MMDDYYYY)")
+
+        month = int(digits[0:2])
+        day = int(digits[2:4])
+        year = int(digits[4:8])
+        if not (1 <= month <= 12 and 1 <= day <= 31):
+            raise ValueError("Tricore DOB must follow MMDDYYYY format")
+
+        return f"{digits[0:2]}/{digits[2:4]}/{digits[4:8]}"

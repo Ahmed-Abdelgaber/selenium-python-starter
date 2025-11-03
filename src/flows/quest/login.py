@@ -22,15 +22,14 @@ class QuestLoginFlow:
         self.logger.info("Submitting Quest CAS credentials for '%s'", username)
         page.login(username, password)
 
-        try:
-            if page.is_logged():
-                self.logger.info("Quest CAS login successful for '%s'", username)
-            else:
-                self.logger.error("Quest CAS login status check returned False for '%s'", username)
-                raise AssertionError("Quest CAS login validation failed")
-        except Exception as exc:
-            self.logger.exception("Quest CAS login failed for '%s': %s", username, exc)
-            raise
+        self.logger.info("Switching to Quest portal window")
+        page.switch_to_portal_window()
+        if page.wait_for_portal_navigation():
+            self.logger.info("Quest portal loaded for '%s'", username)
+        else:
+            self.logger.warning("Quest portal navigation not detected for '%s'", username)
+
+        self.logger.info("Quest CAS login flow completed for '%s'", username)
 
         return page
 
