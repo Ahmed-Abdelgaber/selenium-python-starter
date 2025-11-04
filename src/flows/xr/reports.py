@@ -39,19 +39,23 @@ class XrReportsFlow:
         self.page.enter_first_name(first_name)
         if dob:
             try:
-                self.page.enter_dob(self._format_mmddyyyy(dob))
+                normalized_dob = self._normalize_dob(dob)
+                formatted_dob = f"{normalized_dob[0:2]}/{normalized_dob[2:4]}/{normalized_dob[4:8]}"
+                self.page.enter_dob(formatted_dob)
             except Exception:
                 self.logger.warning("Unable to set XR DOB; continuing")
         else:
             self.logger.info("No DOB provided; skipping DOB filter")
         if start_date:
             try:
-                self.page.enter_start_date(self._format_ddmmyyyy(start_date))
+                formatted_start = self._format_ddmmyyyy(start_date)
+                self.page.enter_start_date(formatted_start)
             except Exception:
                 self.logger.warning("Unable to set XR start date; continuing")
         if end_date:
             try:
-                self.page.enter_end_date(self._format_ddmmyyyy(end_date))
+                formatted_end = self._format_ddmmyyyy(end_date)
+                self.page.enter_end_date(formatted_end)
             except Exception:
                 self.logger.warning("Unable to set XR end date; continuing")
         self.page.submit_search()
@@ -61,8 +65,6 @@ class XrReportsFlow:
         last_name: str,
         first_name: str,
         dob: Optional[str] = None,
-        *,
-        max_reports: Optional[int] = None,
     ) -> List[str]:
         collected: List[str] = []
         row_index = 0
@@ -79,8 +81,6 @@ class XrReportsFlow:
         while True:
             rows = self.page.rows()
             if row_index >= len(rows):
-                break
-            if max_reports is not None and row_index >= max_reports:
                 break
 
             row = rows[row_index]
@@ -121,7 +121,6 @@ class XrReportsFlow:
                     self.driver.switch_to.window(handle)
                     self.driver.close()
                 self.driver.switch_to.window(main_window)
-                self.page.close_preview()
 
             except Exception as exc:
                 screenshot = self.download_dir / f"xr_error_report_{row_index + 1}.png"
@@ -131,6 +130,18 @@ class XrReportsFlow:
                     self.logger.warning("Unable to capture XR screenshot", exc_info=True)
                 self.logger.warning("Error processing XR report %d: %s", row_index + 1, exc)
             finally:
+                try:
+                    self.driver.switch_to.window(main_window)
+                except Exception:
+                    pass
+                try:
+                    self.driver.switch_to.default_content()
+                except Exception:
+                    pass
+                try:
+                    self.page.close_preview()
+                except Exception:
+                    pass
                 if row_index + 1 < len(rows):
                     self.driver.execute_script("window.scrollBy(0, 250);")
                 row_index += 1
