@@ -38,6 +38,19 @@ class BasePage:
         el.send_keys(text)
         return el
 
+    def set_value(self, by: By, locator: str, value: str) -> WebElement:
+        el = self.wait.until(EC.presence_of_element_located((by, locator)))
+        self.driver.execute_script(
+            """
+            arguments[0].value = arguments[1];
+            arguments[0].dispatchEvent(new Event('input', { bubbles: true }));
+            arguments[0].dispatchEvent(new Event('change', { bubbles: true }));
+            """,
+            el,
+            value,
+        )
+        return el
+
     def text_of(self, by: By, locator: str, wait_for: str = None) -> str:
         if wait_for:
             self.wait.until(EC.text_to_be_present_in_element((by, locator), wait_for))

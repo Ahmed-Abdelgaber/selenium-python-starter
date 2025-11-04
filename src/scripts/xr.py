@@ -24,7 +24,6 @@ def RunXr(
     *,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
-    max_reports: Optional[int] = None,
 ) -> list[str]:
     LOGGER.info("Starting XR automation run")
     login_flow = XrLoginFlow(driver)
@@ -42,7 +41,6 @@ def RunXr(
         last_name=last_name,
         first_name=first_name,
         dob=dob,
-        max_reports=max_reports,
     )
     LOGGER.info("XR automation completed with %d file(s) downloaded", len(files))
     return files

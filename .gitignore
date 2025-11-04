@@ -27,3 +27,5 @@ reports/
 coverage/
 
 downloads/
+ui/node_modules/
+ui/dist/

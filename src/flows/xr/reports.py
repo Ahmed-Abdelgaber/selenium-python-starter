@@ -120,7 +120,7 @@ class XrReportsFlow:
                 for handle in extra_handles:
                     self.driver.switch_to.window(handle)
                     self.driver.close()
-                self.driver.switch_to.window(main_window)
+                    self.logger.debug("finished download")
 
             except Exception as exc:
                 screenshot = self.download_dir / f"xr_error_report_{row_index + 1}.png"
@@ -130,10 +130,6 @@ class XrReportsFlow:
                     self.logger.warning("Unable to capture XR screenshot", exc_info=True)
                 self.logger.warning("Error processing XR report %d: %s", row_index + 1, exc)
             finally:
-                try:
-                    self.driver.switch_to.window(main_window)
-                except Exception:
-                    pass
                 try:
                     self.driver.switch_to.default_content()
                 except Exception:

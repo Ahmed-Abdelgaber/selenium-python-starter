@@ -260,15 +260,16 @@ def handler(event: Dict[str, Any], context: Any = None) -> Dict[str, Any]:
             for obj in uploaded:
                 s3_objects.append(
                     {
-                        "report_name": obj.report_name,
+                        "s3_file_name": obj.report_name,
+                        "s3_file_url": obj.s3_uri,
+                        "s3_file_download": obj.download_url or obj.s3_uri,
                         "s3_console_url": obj.console_url,
-                        "download_url": obj.download_url or obj.s3_uri,
-                        "s3_uri": obj.s3_uri,
                     }
                 )
 
         return {
             "site": site,
+            "site_name": site,
             "count": len(files),
             "patient_name": patient_full_name,
             "report_date": report_date,

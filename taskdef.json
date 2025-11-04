@@ -1,0 +1,60 @@
+{
+  "family": "etc-report-automation-task",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "executionRoleArn": "arn:aws:iam::380264618909:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::380264618909:role/etc-report-automation-task-role",
+  "runtimePlatform": {
+    "cpuArchitecture": "ARM64",
+    "operatingSystemFamily": "LINUX"
+  },
+  "containerDefinitions": [
+    {
+      "name": "automation-api",
+      "image": "380264618909.dkr.ecr.us-east-1.amazonaws.com/selenium-automation-service:latest",
+      "portMappings": [{ "containerPort": 8000, "protocol": "tcp" }],
+      "essential": true,
+      "environment": [
+        { "name": "AWS_REGION", "value": "us-east-1" },
+        { "name": "DOWNLOAD_S3_BUCKET", "value": "runner-downloads-bucket" },
+        { "name": "DOWNLOAD_S3_PREFIX", "value": "selenium-downloads" },
+        { "name": "DOWNLOAD_S3_PREFIX_ZIO", "value": "ziosuite" },
+        { "name": "DOWNLOAD_S3_PREFIX_XR", "value": "xraynm" },
+        { "name": "DOWNLOAD_S3_PREFIX_QUEST", "value": "quest" },
+        { "name": "DOWNLOAD_S3_PREFIX_TRICORE", "value": "tricore" },
+        { "name": "DOWNLOAD_S3_REGION", "value": "eu-north-1" },
+        { "name": "DOWNLOAD_S3_URL_EXPIRATION", "value": "604800" },
+        { "name": "DOWNLOAD_S3_DIRECT", "value": "true" },
+        { "name": "SELENIUM_MANAGER_DISABLE", "value": "1" }
+      ],
+      "secrets": [
+        {
+          "name": "ZIO_SECRET_ARN",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:380264618909:secret:/lab-report-automation/ziosuite-BM1x6R"
+        },
+        {
+          "name": "XR_SECRET_ARN",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:380264618909:secret:/lab-report-automation/xraynm-ruHv9g"
+        },
+        {
+          "name": "QUEST_SECRET_ARN",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:380264618909:secret:/lab-report-automation/quest-A4hpUG"
+        },
+        {
+          "name": "TRICORE_SECRET_ARN",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:380264618909:secret:/lab-report-automation/tricore-0um9kL"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/selenium-automation-service",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}

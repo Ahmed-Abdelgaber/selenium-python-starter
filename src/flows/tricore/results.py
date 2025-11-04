@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import re
 import time
+from datetime import datetime
 
 from src.core.config import load_config
 from src.core.logger import get_logger
 from src.core.pdf_download import (
     allow_downloads_cdp,
     clean_download_dir,
+    rename_downloaded_file,
     snapshot_downloads,
     wait_for_new_download,
 )
@@ -23,6 +26,9 @@ class TricoreResultsFlow:
         self,
         per_page: int = 10,
         total_items: int | None = None,
+        *,
+        patient_name: str,
+        report_date: str | None = None,
     ) -> list[str]:
         self.logger.info("Selecting first Tricore result")
         results_page = TricoreResultsPage(self.driver)
@@ -37,6 +43,9 @@ class TricoreResultsFlow:
         last_handle = self.driver.current_window_handle
 
         downloaded_files: list[str] = []
+        normalized_patient = self._normalize_patient_name(patient_name)
+        date_segment = self._normalize_report_date(report_date)
+        total_index = 0
 
         page_index = 0
         while True:
@@ -71,11 +80,20 @@ class TricoreResultsFlow:
                     page_index + 1,
                 )
             else:
-                downloaded_files.append(downloaded_path)
+                total_index += 1
+                target_name = f"tricore_{normalized_patient}_{date_segment}-{total_index}.pdf"
+                final_path = rename_downloaded_file(
+                    downloaded_path,
+                    self.download_dir,
+                    target_name,
+                    overwrite=False,
+                    keep_extension=True,
+                )
+                downloaded_files.append(final_path)
                 self.logger.info(
                     "Tricore PDF for page %d saved to '%s'",
                     page_index + 1,
-                    downloaded_path,
+                    final_path,
                 )
 
             if results_page.go_to_next_page():
@@ -90,3 +108,19 @@ class TricoreResultsFlow:
             raise TimeoutError("No Tricore PDFs were downloaded during the flow")
 
         return downloaded_files
+
+    @staticmethod
+    def _normalize_patient_name(value: str) -> str:
+        cleaned = re.sub(r"[^A-Za-z0-9]+", "-", value or "")
+        cleaned = cleaned.strip("-")
+        return cleaned or "patient"
+
+    @staticmethod
+    def _normalize_report_date(value: str | None) -> str:
+        if value:
+            digits = re.sub(r"[^0-9]", "", value)
+            if len(digits) >= 8:
+                return digits[:8]
+            if digits:
+                return digits
+        return datetime.utcnow().strftime("%Y%m%d")

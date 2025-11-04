@@ -43,7 +43,10 @@ def RunTricore(
             gender,
         )
         LOGGER.info("Executing Tricore results flow")
-        downloaded_files = results_flow.search_and_download()
+        patient_full_name = f"{first_name} {last_name}".strip()
+        downloaded_files = results_flow.search_and_download(
+            patient_name=patient_full_name,
+        )
         LOGGER.info("Tricore automation completed with %d file(s)", len(downloaded_files))
         return downloaded_files
 

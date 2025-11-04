@@ -32,7 +32,7 @@ class Config:
     download_s3_prefix_tricore: str | None = None
     download_s3_region: str | None = None
     download_s3_url_expiration: int | None = None
-    download_s3_direct: bool = False
+    download_s3_direct: bool = True
 
 def load_config(cli: dict | None = None) -> Config:
     """
@@ -110,8 +110,8 @@ def load_config(cli: dict | None = None) -> Config:
 
     direct_val = merged.get("download_s3_direct")
     if isinstance(direct_val, str):
-        merged["download_s3_direct"] = _to_bool(direct_val, default=False)
+        merged["download_s3_direct"] = _to_bool(direct_val, default=True)
     elif direct_val is None:
-        merged["download_s3_direct"] = False
+        merged["download_s3_direct"] = True
 
     return Config(**merged)  # type: ignore[arg-type]

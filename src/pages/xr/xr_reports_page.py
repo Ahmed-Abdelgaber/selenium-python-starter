@@ -15,7 +15,7 @@ class XrReportsPage(BasePage):
     FIRST_NAME_INPUT = (By.ID, "tRptPFName")
     DOB_INPUT = (By.ID, "tRptPDOB")
     START_DATE_INPUT = (By.ID, "tRptStart")
-    END_DATE_INPUT = (By.XPATH, "//input[@id='tRptEnd']")
+    END_DATE_INPUT = (By.ID, "tRptEnd")
     SEARCH_BUTTON = (By.ID, "btnRptAdvSrch")
     RESULTS_TABLE = (By.ID, "listRpt")
     ROWS = (By.CSS_SELECTOR, "#listRpt tr.jqgrow")
@@ -36,13 +36,13 @@ class XrReportsPage(BasePage):
         self.type(*self.FIRST_NAME_INPUT, value)
 
     def enter_dob(self, value: str) -> None:
-        self.type(*self.DOB_INPUT, value)
+        self.set_value(*self.DOB_INPUT, value)
 
     def enter_start_date(self, value: str) -> None:
-        self.type(*self.START_DATE_INPUT, value)
+        self.set_value(*self.START_DATE_INPUT, value)
 
     def enter_end_date(self, value: str) -> None:
-        self.type(*self.END_DATE_INPUT, value)
+        self.set_value(*self.END_DATE_INPUT, value)
 
     def submit_search(self) -> None:
         self.click(*self.SEARCH_BUTTON)

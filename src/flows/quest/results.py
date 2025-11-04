@@ -63,7 +63,7 @@ class QuestResultsFlow:
                     file_name,
                 )
                 downloaded_name = os.path.basename(final_path)
-                downloaded_files.append(downloaded_name)
+                downloaded_files.append(str(final_path))
                 self.logger.info(
                     "Downloaded Quest result card %s as '%s'",
                     card_number,
