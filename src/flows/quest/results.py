@@ -72,6 +72,7 @@ class QuestResultsFlow:
                 page.close_print_dialog()
             except Exception as exc:
                 self.logger.exception("Failed to download Quest result card %s: %s", card_number, exc)
+                raise RuntimeError(f"Quest result card {card_number} download failed") from exc
             finally:
                 try:
                     if page._is_checked(card):  # type: ignore[attr-defined]

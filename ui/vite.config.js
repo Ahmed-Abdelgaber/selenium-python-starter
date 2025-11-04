@@ -11,6 +11,7 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+    allowedHosts:"86e34084d9c4.ngrok-free.app"
   },
   build: {
     outDir: "dist",

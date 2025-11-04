@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const siteOptions = [
   { value: "tricore", label: "TriCore" },
@@ -152,6 +152,14 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [jobId, setJobId] = useState(null);
   const [jobStatus, setJobStatus] = useState(null);
+  const pollerRef = useRef(null);
+
+  const stopPolling = useCallback(() => {
+    if (pollerRef.current) {
+      clearInterval(pollerRef.current);
+      pollerRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     if (form.site !== "tricore" && form.gender) {
@@ -207,6 +215,7 @@ export default function App() {
     setResult(null);
     setJobId(null);
     setJobStatus(null);
+    stopPolling();
 
     const issues = validate(form);
     if (issues.length > 0) {
@@ -244,6 +253,7 @@ export default function App() {
     setDobPicker("");
     setStartPicker("");
     setEndPicker("");
+    stopPolling();
     setError("");
     setResult(null);
     setJobId(null);
@@ -251,71 +261,50 @@ export default function App() {
     setIsSubmitting(false);
   }
 
+  const fetchJobStatus = useCallback(async () => {
+    if (!jobId) {
+      return;
+    }
+    try {
+      const response = await fetch(`${apiBaseUrl}/jobs/${jobId}`);
+      if (!response.ok) {
+        const details = await response.json().catch(() => ({}));
+        throw new Error(details.detail || `Job status request failed with status ${response.status}`);
+      }
+      const data = await response.json();
+      setJobStatus(data.status);
+      if (data.status === "completed") {
+        setResult(data.result || null);
+        setIsSubmitting(false);
+        stopPolling();
+      } else if (data.status === "failed") {
+        setError(data.error || "Automation job failed");
+        setIsSubmitting(false);
+        stopPolling();
+      }
+    } catch (pollError) {
+      setError(pollError.message || "Unable to fetch job status");
+      setIsSubmitting(false);
+      stopPolling();
+    }
+  }, [apiBaseUrl, jobId, stopPolling]);
+
   useEffect(() => {
     if (!jobId) {
       return undefined;
     }
 
-    let cancelled = false;
-    let finished = false;
-    let intervalId = null;
-
-    const pollStatus = async () => {
-      if (cancelled || finished) {
-        return;
-      }
-
-      try {
-        const response = await fetch(`${apiBaseUrl}/jobs/${jobId}`);
-        if (!response.ok) {
-          const details = await response.json().catch(() => ({}));
-          throw new Error(details.detail || `Job status request failed with status ${response.status}`);
-        }
-
-        const data = await response.json();
-        if (cancelled) {
-          return;
-        }
-
-        setJobStatus(data.status);
-        if (data.status === "completed") {
-          setResult(data.result || null);
-          setIsSubmitting(false);
-          finished = true;
-          if (intervalId) {
-            clearInterval(intervalId);
-          }
-        } else if (data.status === "failed") {
-          setError(data.error || "Automation job failed");
-          setIsSubmitting(false);
-          finished = true;
-          if (intervalId) {
-            clearInterval(intervalId);
-          }
-        }
-      } catch (pollError) {
-        if (!cancelled) {
-          setError(pollError.message || "Unable to fetch job status");
-          setIsSubmitting(false);
-          finished = true;
-          if (intervalId) {
-            clearInterval(intervalId);
-          }
-        }
-      }
-    };
-
-    pollStatus();
-    intervalId = setInterval(pollStatus, 4000);
+    fetchJobStatus();
+    if (!pollerRef.current) {
+      pollerRef.current = setInterval(() => {
+        fetchJobStatus();
+      }, 4000);
+    }
 
     return () => {
-      cancelled = true;
-      finished = true;
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
+      stopPolling();
     };
-  }, [apiBaseUrl, jobId]);
+  }, [jobId, fetchJobStatus, stopPolling]);
 
   const isWaitingForResult =
     isSubmitting && jobId && jobStatus && !["completed", "failed"].includes(jobStatus);
@@ -426,6 +415,14 @@ export default function App() {
         {jobId ? (
           <div className="status status--info">
             <strong>Job ID:</strong> <code>{jobId}</code> · Status: {jobStatus || "pending"}
+            <button
+              type="button"
+              className="button"
+              onClick={() => fetchJobStatus()}
+              disabled={!jobId}
+            >
+              Refresh Status
+            </button>
           </div>
         ) : null}
 

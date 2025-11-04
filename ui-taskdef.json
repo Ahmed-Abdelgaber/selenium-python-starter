@@ -1,0 +1,55 @@
+{
+  "family": "medical-report-ui-task",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::380264618909:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::380264618909:role/etc-report-automation-task-role",
+  "runtimePlatform": {
+    "cpuArchitecture": "ARM64",
+    "operatingSystemFamily": "LINUX"
+  },
+  "containerDefinitions": [
+    {
+      "name": "medical-report-ui",
+      "image": "380264618909.dkr.ecr.us-east-1.amazonaws.com/medical-report-ui:latest",
+      "portMappings": [
+        {
+          "containerPort": 80,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "NGINX_PORT",
+          "value": "80"
+        },
+        {
+          "name": "API_BASE_URL",
+          "value": "3.230.1.49:8000"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/medical-report-ui",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "wget -qO- http://127.0.0.1:80/health || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}
+
