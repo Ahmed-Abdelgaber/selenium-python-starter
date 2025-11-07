@@ -7,21 +7,33 @@
 
 body {
   margin: 0;
+  min-height: 100vh;
+  background: linear-gradient(160deg, #e9efff, #f9fbff, #eef2fb);
+  padding: 2rem 1rem 3rem;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+  overflow-x: hidden;
 }
 
 .page {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 2.5rem 1.5rem 4rem;
+  width: calc(100vw - 2rem);
+  max-width: 1800px;
+  padding: 2.5rem 2.5rem 3rem;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 25px 50px rgba(15, 23, 42, 0.08);
+  box-sizing: border-box;
 }
 
 .page__header h1 {
   margin: 0;
-  font-size: 2rem;
+  font-size: 2.2rem;
   font-weight: 600;
+  color: #171d37;
 }
 
 .page__subtitle {
@@ -33,7 +45,15 @@ body {
   background: #ffffff;
   border-radius: 12px;
   padding: 1.5rem;
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 18px 35px rgba(15, 23, 42, 0.07);
+  border: 1px solid rgba(99, 112, 149, 0.08);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.card--stretch {
+  width: 100%;
 }
 
 .card__header {
@@ -58,12 +78,49 @@ body {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .form__grid {
   display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  align-items: flex-start;
+}
+
+.filters-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1.6rem;
+}
+
+.filters-row {
+  display: grid;
+  column-gap: 1.75rem;
+  row-gap: 1.25rem;
+  align-items: stretch;
+}
+
+.filters-row--primary {
+  grid-template-columns: 1fr;
+}
+
+.filters-row--patient {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  column-gap: 1.5rem;
+}
+
+.filters-row--secondary {
+  grid-template-columns: repeat(3, minmax(200px, 1fr));
+  align-items: stretch;
+}
+
+.dob-field .dob-row {
+  display: flex;
+  align-items: center;
   gap: 1rem;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 }
 
 .form__field {
@@ -78,23 +135,61 @@ body {
   font-weight: 500;
 }
 
+.form__field input,
+.form__field select {
+  font-size: 1.05rem;
+  width: 100%;
+}
+
+.form__field--narrow {
+  max-width: 220px;
+}
+
+.form__field--compact {
+  max-width: 220px;
+}
+
+.dob-field {
+  max-width: 240px;
+}
+
+.form__field select[name="gender"] {
+  max-width: 200px;
+}
+
 input,
 select {
-  border: 1px solid #c9d1e6;
-  border-radius: 8px;
-  padding: 0.65rem 0.75rem;
+  border: none;
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
   font-size: 1rem;
   color: inherit;
-  background: #f9fbff;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  background: rgba(82, 99, 255, 0.05);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 
 input:focus,
 select:focus {
   outline: none;
-  border-color: #5163ff;
-  box-shadow: 0 0 0 3px rgba(81, 99, 255, 0.2);
-  background: #ffffff;
+  background: rgba(82, 99, 255, 0.12);
+  box-shadow: 0 0 0 3px rgba(82, 99, 255, 0.25);
+}
+
+.form__note {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #6b7391;
+}
+
+.form__label-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.form__note--inline {
+  font-size: 0.8rem;
+  color: #c62828;
 }
 
 .form__actions {
@@ -103,20 +198,94 @@ select:focus {
   gap: 0.75rem;
 }
 
+.react-datepicker-wrapper,
+.react-datepicker__input-container,
+.date-input {
+  width: 100%;
+}
+
+.date-input {
+  border: none;
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  background: rgba(82, 99, 255, 0.05);
+}
+
+.site-checkboxes {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.65rem;
+  overflow: hidden;
+  padding: 0.25rem 0;
+}
+
+.site-checkbox {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 1rem;
+  border-radius: 999px;
+  background: rgba(24, 34, 51, 0.08);
+  color: #26324a;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.site-checkbox input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.site-checkbox__marker {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background: transparent;
+  transition: all 0.2s ease;
+}
+
+.site-checkbox__label {
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.site-checkbox:hover {
+  background: rgba(24, 34, 51, 0.15);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12);
+}
+
+.site-checkbox--active {
+  background: linear-gradient(135deg, #5a6bff, #7383ff);
+  color: #ffffff;
+  box-shadow: 0 14px 24px rgba(90, 107, 255, 0.35);
+}
+
+.site-checkbox--active .site-checkbox__marker {
+  border-color: rgba(255, 255, 255, 0.65);
+}
+
 .button {
   border: none;
   border-radius: 8px;
   padding: 0.75rem 1.5rem;
   font-size: 1rem;
   cursor: pointer;
-  background: #e4e8f5;
-  color: #1a1f36;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  background: rgba(37, 51, 78, 0.9);
+  color: #ffffff;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
 .button:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.08);
+  background: rgba(56, 79, 124, 0.95);
+  box-shadow: 0 12px 22px rgba(15, 23, 42, 0.15);
 }
 
 .button:disabled {
@@ -126,8 +295,9 @@ select:focus {
 }
 
 .button--primary {
-  background: #5163ff;
+  background: linear-gradient(120deg, #5068ff, #7d8dff);
   color: #ffffff;
+  box-shadow: 0 15px 25px rgba(80, 104, 255, 0.35);
 }
 
 .alert {
@@ -181,9 +351,41 @@ td a:hover {
   text-decoration: underline;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 1120px) {
   .page {
-    padding: 2rem 1rem;
+    width: calc(100vw - 2rem);
+    max-width: 1100px;
+  }
+
+  .filters-row--primary {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+
+  .filters-row--secondary {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  body {
+    padding: 1rem 0.5rem 2rem;
+  }
+
+  .page {
+    padding: 1.5rem 1rem;
+    width: calc(100vw - 1rem);
+  }
+
+  .card {
+    padding: 1rem;
+  }
+
+  .filters-row--primary {
+    grid-template-columns: 1fr;
+  }
+
+  .filters-row--secondary {
+    grid-template-columns: 1fr;
   }
 
   .form__grid {
