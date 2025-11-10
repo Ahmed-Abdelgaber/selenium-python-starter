@@ -10,7 +10,7 @@ IMAGE_TAG="${IMAGE_TAG:-latest}"
 TASK_DEFINITION_FILE="ui-taskdef.json"
 SERVICE_NAME="${SERVICE_NAME:-medical-report-ui-service}"
 CLUSTER_NAME="${CLUSTER_NAME:-etc-report-automation}"
-API_BASE_URL="${API_BASE_URL:-3.230.1.49:8000}"
+API_BASE_URL="${API_BASE_URL:-44.197.193.196:8000}"
 
 # Colors for output
 RED='\033[0;31m'

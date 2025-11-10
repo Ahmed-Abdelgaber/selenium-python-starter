@@ -34,10 +34,12 @@ def RunQuest(
         search_flow = QuestSearchFlow(current_driver)
         results_flow = QuestResultsFlow(current_driver)
 
+        login_success = False
         success = False
         try:
             LOGGER.info("Executing Quest login flow")
             login_flow.login(username, password)
+            login_success = True
 
             LOGGER.info("Executing Quest search flow")
             search_flow.search_and_open(patient_name, patient_dob)
@@ -49,7 +51,7 @@ def RunQuest(
             LOGGER.info("Quest automation attempt completed successfully")
             return downloaded_files
         finally:
-            if success:
+            if login_success:
                 LOGGER.info("Logging out from Quest session")
                 try:
                     QuestLogoutFlow(current_driver).logout()

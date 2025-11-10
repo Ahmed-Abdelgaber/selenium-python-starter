@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.api.jobs import JobManager, JobRecord
+from src.api.logs import attach_loggers, log_router
 from src.orchestrator import STATIC_CREDENTIAL_MAP, handler as run_handler
 
 app = FastAPI(title="Automation Orchestrator")
@@ -30,6 +31,7 @@ _executor = ThreadPoolExecutor(
     max_workers=int(os.getenv("RUNNER_MAX_WORKERS", "2"))
 )
 _jobs = JobManager()
+attach_loggers()
 
 
 def _prepare_payload(
@@ -146,6 +148,7 @@ async def get_job_root(job_id: str) -> Dict[str, Any]:
 
 
 app.include_router(api_router, prefix="/api")
+app.include_router(log_router, prefix="/api")
 
 
 def _detect_frontend_dir() -> Path | None:

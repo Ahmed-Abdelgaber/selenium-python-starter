@@ -85,7 +85,15 @@ class XrReportsFlow:
 
             row = rows[row_index]
             try:
-                title_text = self.page.get_title(row)
+                try:
+                    title_text = self.page.get_title(row)
+                    if not title_text:
+                        raise ValueError("XR report title element returned empty text")
+                except Exception as title_error:
+                    raise RuntimeError(
+                        f"Unable to read XR report title for row {row_index + 1}"
+                    ) from title_error
+
                 dos_text = self.page.get_dos(row)
 
                 self.page.open_row(row)

@@ -1,12 +1,21 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
+const SITE_RUN_ORDER = ["tricore", "xr", "quest", "zio"];
+const SITE_LABELS = {
+  tricore: "TRICORE",
+  xr: "XRAYNM",
+  quest: "QUEST",
+  zio: "ZIOSUITE",
+};
+
 const siteOptions = [
-  { value: "tricore", label: "TRICORE" },
-  { value: "xr", label: "XRAYNM" },
-  { value: "quest", label: "QUEST" },
-  { value: "zio", label: "ZIOSUITE" },
+  { value: "tricore", label: SITE_LABELS.tricore },
+  { value: "xr", label: SITE_LABELS.xr },
+  { value: "quest", label: SITE_LABELS.quest },
+  { value: "zio", label: SITE_LABELS.zio },
+  { value: "all", label: "ALL" },
 ];
 
 const periodOptions = [
@@ -26,6 +35,8 @@ const genderOptions = [
   { value: "female", label: "Female" },
   { value: "male", label: "Male" },
 ];
+
+const FINAL_JOB_STATUSES = new Set(["completed", "failed"]);
 
 const periodDurationsInDays = {
   "1_week": 7,
@@ -144,9 +155,9 @@ function formatDayMonthYear(value) {
   return digits;
 }
 
-function buildPayload(form, startDateValue, endDateValue) {
+function buildPayload(form, startDateValue, endDateValue, siteOverride = form.site) {
   const payload = {
-    site: form.site,
+    site: siteOverride,
     patient: {
       first_name: form.firstName.trim(),
       last_name: form.lastName.trim(),
@@ -159,14 +170,14 @@ function buildPayload(form, startDateValue, endDateValue) {
   }
 
   const options = {};
-  if (form.gender.trim() && form.site === "tricore") {
+  if (form.gender.trim() && siteOverride === "tricore") {
     options.gender = form.gender.trim();
   }
-  if (form.site === "xr" && startDateValue.trim()) {
+  if (siteOverride === "xr" && startDateValue.trim()) {
     const formattedStart = formatDayMonthYear(startDateValue);
     options.start_date = formattedStart;
   }
-  if (form.site === "xr" && endDateValue.trim()) {
+  if (siteOverride === "xr" && endDateValue.trim()) {
     const formattedEnd = formatDayMonthYear(endDateValue);
     options.end_date = formattedEnd;
   }
@@ -178,8 +189,11 @@ function buildPayload(form, startDateValue, endDateValue) {
   return payload;
 }
 
-function validate(form, startDateValue, endDateValue) {
+function validate(form, startDateValue, endDateValue, siteContext = form.site) {
   const missing = [];
+  const siteKey = siteContext || form.site;
+  const siteLabel = SITE_LABELS[siteKey] || siteKey.toUpperCase();
+
   if (!form.firstName.trim()) {
     missing.push("First name is required");
   }
@@ -187,24 +201,24 @@ function validate(form, startDateValue, endDateValue) {
     missing.push("Last name is required");
   }
 
-  if (form.site === "tricore") {
+  if (siteKey === "tricore") {
     if (!form.dob.trim()) {
-      missing.push("Date of birth is required for TriCore");
+      missing.push(`[${siteLabel}] Date of birth is required.`);
     }
     if (!form.gender.trim()) {
-      missing.push("Gender is required for TriCore");
+      missing.push(`[${siteLabel}] Gender is required.`);
     }
   }
 
-  if (form.site === "quest" && !form.dob.trim()) {
-    missing.push("Date of birth is required for Quest");
+  if (siteKey === "quest" && !form.dob.trim()) {
+    missing.push(`[${siteLabel}] Date of birth is required.`);
   }
 
-  if (form.site === "xr") {
+  if (siteKey === "xr") {
     const hasStart = Boolean(startDateValue.trim());
     const hasEnd = Boolean(endDateValue.trim());
     if (hasStart !== hasEnd) {
-      missing.push("XR requires both start and end dates when filtering by date");
+      missing.push(`[${siteLabel}] Start and end dates must both be provided.`);
     }
   }
 
@@ -218,10 +232,30 @@ export default function App() {
   const [endPicker, setEndPicker] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [result, setResult] = useState(null);
-  const [jobId, setJobId] = useState(null);
-  const [jobStatus, setJobStatus] = useState(null);
-  const pollerRef = useRef(null);
+  const [activeSites, setActiveSites] = useState([initialForm.site]);
+  const [siteJobs, setSiteJobs] = useState({});
+  const siteJobsRef = useRef(siteJobs);
+  const [resultsBySite, setResultsBySite] = useState({});
+  const [siteErrors, setSiteErrors] = useState({});
+  const [expandedSites, setExpandedSites] = useState(() =>
+    SITE_RUN_ORDER.reduce((acc, site) => ({ ...acc, [site]: true }), {})
+  );
+  const jobsPollerRef = useRef(null);
+  const [logs, setLogs] = useState([]);
+  const [isLogPanelOpen, setIsLogPanelOpen] = useState(false);
+  const [isFetchingLogs, setIsFetchingLogs] = useState(false);
+  const [logError, setLogError] = useState("");
+  const logListRef = useRef(null);
+  const [isSiteLocked, setIsSiteLocked] = useState(false);
+
+  const selectedSites = activeSites.length ? activeSites : [initialForm.site];
+  const runsTricore = selectedSites.includes("tricore");
+  const runsXr = selectedSites.includes("xr");
+  const runsZioOnly = selectedSites.length === 1 && selectedSites[0] === "zio";
+
+  useEffect(() => {
+    siteJobsRef.current = siteJobs;
+  }, [siteJobs]);
 
   const handleDobDateChange = useCallback((date) => {
     const isoValue = date ? toISODate(date) : "";
@@ -241,45 +275,88 @@ export default function App() {
     (date) => {
       const isoValue = date ? toISODate(date) : "";
       setEndPicker(isoValue);
-      if (!isoValue && form.site === "xr") {
+      if (!isoValue && runsXr) {
         setStartPicker("");
       }
     },
-    [form.site]
+    [runsXr]
   );
 
   const stopPolling = useCallback(() => {
-    if (pollerRef.current) {
-      clearInterval(pollerRef.current);
-      pollerRef.current = null;
+    if (jobsPollerRef.current) {
+      clearInterval(jobsPollerRef.current);
+      jobsPollerRef.current = null;
     }
   }, []);
-  const handleSiteSelect = useCallback((value) => {
-    setForm((prev) => {
-      if (prev.site === value) {
-        return prev;
+
+  const fetchBackendLogs = useCallback(async () => {
+    setIsFetchingLogs(true);
+    try {
+      const response = await fetch(`${apiBaseUrl}/logs?limit=200`);
+      if (!response.ok) {
+        const details = await response.json().catch(() => ({}));
+        throw new Error(details.detail || "Unable to load logs");
       }
-      return {
-        ...prev,
-        site: value,
-        period: value === "xr" ? prev.period || "1_month" : "",
-      };
-    });
-    setStartPicker("");
-    setEndPicker("");
-  }, []);
+      const data = await response.json();
+      setLogs(data.logs || []);
+      setLogError("");
+    } catch (fetchError) {
+      setLogError(fetchError.message || "Unable to load logs");
+    } finally {
+      setIsFetchingLogs(false);
+    }
+  }, [apiBaseUrl]);
 
   useEffect(() => {
-    if (form.site !== "tricore" && form.gender) {
+    if (!isLogPanelOpen) {
+      return undefined;
+    }
+    fetchBackendLogs();
+    const interval = setInterval(() => {
+      fetchBackendLogs();
+    }, 5000);
+    return () => {
+      clearInterval(interval);
+    };
+  }, [isLogPanelOpen, fetchBackendLogs]);
+
+  useEffect(() => {
+    if (!logs.length || !logListRef.current) {
+      return;
+    }
+    logListRef.current.scrollTop = logListRef.current.scrollHeight;
+  }, [logs]);
+  const handleSiteSelect = useCallback(
+    (value) => {
+      if (isSiteLocked) {
+        return;
+      }
+      setForm((prev) => {
+        if (prev.site === value) {
+          return prev;
+        }
+        return {
+          ...prev,
+          site: value,
+          period: value === "xr" || value === "all" ? prev.period || "1_month" : "",
+        };
+      });
+      setActiveSites(value === "all" ? [...SITE_RUN_ORDER] : [value]);
+    },
+    [isSiteLocked]
+  );
+
+  useEffect(() => {
+    if (!runsTricore && form.gender) {
       setForm((prev) => ({
         ...prev,
         gender: "",
       }));
     }
-  }, [form.site, form.gender]);
+  }, [runsTricore, form.gender]);
 
   useEffect(() => {
-    if (form.site !== "xr") {
+    if (!runsXr) {
       setStartPicker("");
       setEndPicker("");
       if (form.period) {
@@ -299,10 +376,10 @@ export default function App() {
         period: "1_month",
       }));
     }
-  }, [form.site, endPicker, form.period]);
+  }, [runsXr, endPicker, form.period]);
 
   useEffect(() => {
-    if (form.site !== "xr" || !form.period || !endPicker) {
+    if (!runsXr || !form.period || !endPicker) {
       return;
     }
     const computed = getStartDateForPeriod(endPicker, form.period);
@@ -311,30 +388,9 @@ export default function App() {
       return;
     }
     setStartPicker((prev) => (prev === computed ? prev : computed));
-  }, [form.site, form.period, endPicker]);
+  }, [runsXr, form.period, endPicker]);
 
-  const patientLabel = useMemo(() => {
-    if (!result?.patient_name) {
-      return "";
-    }
-    return `${result.patient_name} · ${result.report_date}`;
-  }, [result]);
-  const isTricore = form.site === "tricore";
-  const isXr = form.site === "xr";
-  const isZio = form.site === "zio";
-
-  useEffect(() => {
-    if (!isZio) {
-      return;
-    }
-    if (dobPicker || form.dob) {
-      setDobPicker("");
-      setForm((prev) => ({
-        ...prev,
-        dob: "",
-      }));
-    }
-  }, [isZio, dobPicker, form.dob]);
+  const onlyZioSelected = runsZioOnly;
 
   function handleChange(event) {
     const { name, value } = event.target;
@@ -343,7 +399,7 @@ export default function App() {
         ...prev,
         period: value,
       }));
-      if (form.site === "xr" && !value) {
+      if (runsXr && !value) {
         setStartPicker("");
       }
       return;
@@ -356,41 +412,84 @@ export default function App() {
 
   async function handleSubmit(event) {
     event.preventDefault();
-    setError("");
-    setResult(null);
-    setJobId(null);
-    setJobStatus(null);
     stopPolling();
+    setError("");
+    setSiteErrors({});
+    setResultsBySite({});
+    setSiteJobs({});
+    siteJobsRef.current = {};
 
-    const issues = validate(form, startPicker, endPicker);
-    if (issues.length > 0) {
-      setError(issues.join(". "));
+    const targetSites = [...selectedSites];
+    if (!targetSites.length) {
+      setError("Select at least one site to run.");
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      const payload = buildPayload(form, startPicker, endPicker);
-      const response = await fetch(`${apiBaseUrl}/run`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const details = await response.json().catch(() => ({}));
-        throw new Error(details.detail || `Request failed with status ${response.status}`);
-      }
-
-      const job = await response.json();
-      setJobId(job.job_id);
-      setJobStatus(job.status || "pending");
-    } catch (submitError) {
-      setError(submitError.message || "Unexpected error occurred");
-      setIsSubmitting(false);
+    const issues = [...new Set(targetSites.flatMap((site) => validate(form, startPicker, endPicker, site)))];
+    if (issues.length > 0) {
+      setError(issues.join(" "));
+      return;
     }
+
+    setIsSiteLocked(true);
+    setIsSubmitting(true);
+
+    const jobMap = {};
+    const errorMap = {};
+
+    await Promise.all(
+      targetSites.map(async (site) => {
+        try {
+          const payload = buildPayload(form, startPicker, endPicker, site);
+          const response = await fetch(`${apiBaseUrl}/run`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+          });
+
+          if (!response.ok) {
+            const details = await response.json().catch(() => ({}));
+            throw new Error(details.detail || `Request failed with status ${response.status}`);
+          }
+
+          const job = await response.json();
+          jobMap[site] = {
+            jobId: job.job_id,
+            status: job.status || "pending",
+          };
+        } catch (submitError) {
+          errorMap[site] = submitError.message || "Unable to start automation";
+        }
+      })
+    );
+
+    setSiteJobs(jobMap);
+    siteJobsRef.current = jobMap;
+    setSiteErrors(errorMap);
+
+    if (Object.keys(jobMap).length === 0) {
+      setIsSubmitting(false);
+      setIsSiteLocked(false);
+      setError(
+        Object.keys(errorMap).length
+          ? "Unable to start automation for the selected sites. See details below."
+          : "Unable to start automation."
+      );
+      return;
+    }
+
+    setResultsBySite({});
+    setError(Object.keys(errorMap).length ? "Some sites failed to start. See details below." : "");
+    setExpandedSites((prev) => {
+      const next = { ...prev };
+      targetSites.forEach((site) => {
+        next[site] = true;
+      });
+      return next;
+    });
+    startPolling();
   }
 
   function handleReset() {
@@ -400,59 +499,122 @@ export default function App() {
     setEndPicker("");
     stopPolling();
     setError("");
-    setResult(null);
-    setJobId(null);
-    setJobStatus(null);
+    setSiteJobs({});
+    siteJobsRef.current = {};
+    setSiteErrors({});
+    setResultsBySite({});
     setIsSubmitting(false);
+    setIsSiteLocked(false);
+    setActiveSites([initialForm.site]);
+    setExpandedSites(SITE_RUN_ORDER.reduce((acc, site) => ({ ...acc, [site]: true }), {}));
   }
 
-  const fetchJobStatus = useCallback(async () => {
-    if (!jobId) {
+  const fetchJobsStatus = useCallback(async () => {
+    const snapshot = siteJobsRef.current;
+    const entries = Object.entries(snapshot).filter(([, job]) => job?.jobId);
+    if (!entries.length) {
+      stopPolling();
+      setIsSubmitting(false);
+      setIsSiteLocked(false);
       return;
     }
-    try {
-      const response = await fetch(`${apiBaseUrl}/jobs/${jobId}`);
-      if (!response.ok) {
-        const details = await response.json().catch(() => ({}));
-        throw new Error(details.detail || `Job status request failed with status ${response.status}`);
-      }
-      const data = await response.json();
-      setJobStatus(data.status);
-      if (data.status === "completed") {
-        setResult(data.result || null);
-        setIsSubmitting(false);
-        stopPolling();
-      } else if (data.status === "failed") {
-        setError(data.error || "Automation job failed");
-        setIsSubmitting(false);
-        stopPolling();
-      }
-    } catch (pollError) {
-      setError(pollError.message || "Unable to fetch job status");
-      setIsSubmitting(false);
+
+    await Promise.all(
+      entries.map(async ([site, job]) => {
+        if (!job || FINAL_JOB_STATUSES.has(job.status)) {
+          return;
+        }
+        try {
+          const response = await fetch(`${apiBaseUrl}/jobs/${job.jobId}`);
+          if (!response.ok) {
+            const details = await response.json().catch(() => ({}));
+            throw new Error(details.detail || `Job status request failed with status ${response.status}`);
+          }
+          const data = await response.json();
+          setSiteJobs((prev) => ({
+            ...prev,
+            [site]: {
+              ...prev[site],
+              status: data.status,
+            },
+          }));
+          if (data.status === "completed") {
+            setResultsBySite((prev) => ({
+              ...prev,
+              [site]: data.result || null,
+            }));
+            setSiteErrors((prev) => {
+              const { [site]: _ignored, ...rest } = prev;
+              return rest;
+            });
+          } else if (data.status === "failed") {
+            setSiteErrors((prev) => ({
+              ...prev,
+              [site]: data.error || "Automation job failed",
+            }));
+          }
+        } catch (pollError) {
+          setSiteErrors((prev) => ({
+            ...prev,
+            [site]: pollError.message || "Unable to fetch job status",
+          }));
+          setSiteJobs((prev) => ({
+            ...prev,
+            [site]: {
+              ...prev[site],
+              status: "failed",
+            },
+          }));
+        }
+      })
+    );
+
+    const updatedJobs = siteJobsRef.current;
+    const allFinished = Object.values(updatedJobs).every(
+      (job) => !job?.jobId || FINAL_JOB_STATUSES.has(job.status)
+    );
+    if (allFinished) {
       stopPolling();
+      setIsSubmitting(false);
+      setIsSiteLocked(false);
     }
-  }, [apiBaseUrl, jobId, stopPolling]);
+  }, [apiBaseUrl, stopPolling]);
 
-  useEffect(() => {
-    if (!jobId) {
-      return undefined;
-    }
-
-    fetchJobStatus();
-    if (!pollerRef.current) {
-      pollerRef.current = setInterval(() => {
-        fetchJobStatus();
+  const startPolling = useCallback(() => {
+    fetchJobsStatus();
+    if (!jobsPollerRef.current) {
+      jobsPollerRef.current = setInterval(() => {
+        fetchJobsStatus();
       }, 4000);
     }
+  }, [fetchJobsStatus]);
 
-    return () => {
+  useEffect(
+    () => () => {
       stopPolling();
-    };
-  }, [jobId, fetchJobStatus, stopPolling]);
+    },
+    [stopPolling]
+  );
 
-  const isWaitingForResult =
-    isSubmitting && jobId && jobStatus && !["completed", "failed"].includes(jobStatus);
+  const hasActiveJobs = Object.values(siteJobs).some(
+    (job) => job?.jobId && !FINAL_JOB_STATUSES.has(job.status)
+  );
+  const isWaitingForResult = isSubmitting && hasActiveJobs;
+  const visibleSiteKeys = SITE_RUN_ORDER.filter(
+    (site) => siteJobs[site] || resultsBySite[site] || siteErrors[site]
+  );
+  const hasSiteData = visibleSiteKeys.length > 0;
+
+  const handleToggleSite = useCallback((site) => {
+    setExpandedSites((prev) => ({
+      ...prev,
+      [site]: !prev[site],
+    }));
+  }, []);
+
+  const handleRefreshStatuses = useCallback(() => {
+    fetchJobsStatus();
+  }, [fetchJobsStatus]);
 
   return (
     <div className="page">
@@ -467,18 +629,22 @@ export default function App() {
               <div className="form__field site-field" aria-label="Site selection">
                 <span className="site-field__label">Select Site</span>
                 <div className="site-checkboxes">
-                  {siteOptions.map((option) => {
-                    const checked = form.site === option.value;
-                    return (
-                      <label
-                        key={option.value}
-                        className={`site-checkbox ${checked ? "site-checkbox--active" : ""}`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => handleSiteSelect(option.value)}
-                        />
+                {siteOptions.map((option) => {
+                  const checked = form.site === option.value;
+                  const disabled = isSiteLocked || isSubmitting;
+                  return (
+                    <label
+                      key={option.value}
+                      className={`site-checkbox ${checked ? "site-checkbox--active" : ""} ${
+                        disabled && !checked ? "site-checkbox--disabled" : ""
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => handleSiteSelect(option.value)}
+                        disabled={isSiteLocked || isSubmitting}
+                      />
                         <span className="site-checkbox__marker" />
                         <span className="site-checkbox__label">{option.label}</span>
                       </label>
@@ -514,7 +680,7 @@ export default function App() {
               <label className="form__field dob-field">
                 <div className="form__label-row">
                   <span>Date of Birth</span>
-                  {isZio ? <span className="form__note form__note--inline">Not required</span> : null}
+                  {onlyZioSelected ? <span className="form__note form__note--inline">Not required</span> : null}
                 </div>
                 <div className="dob-row">
                   <DatePicker
@@ -524,7 +690,7 @@ export default function App() {
                     dateFormat="MM/dd/yyyy"
                     isClearable
                     className="date-input"
-                    disabled={isZio}
+                    disabled={onlyZioSelected}
                   />
                 </div>
               </label>
@@ -532,7 +698,7 @@ export default function App() {
               <label className="form__field">
                 <div className="form__label-row">
                   <span>Gender</span>
-                  {!isTricore ? (
+                  {!runsTricore ? (
                     <span className="form__note form__note--inline">Not required</span>
                   ) : null}
                 </div>
@@ -540,7 +706,7 @@ export default function App() {
                   name="gender"
                   value={form.gender}
                   onChange={handleChange}
-                  disabled={!isTricore}
+                  disabled={!runsTricore}
                 >
                   {genderOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -555,9 +721,9 @@ export default function App() {
               <label className="form__field form__field--compact">
                 <div className="form__label-row">
                   <span>Time Period</span>
-                  {!isXr ? <span className="form__note form__note--inline">Not required</span> : null}
+                  {!runsXr ? <span className="form__note form__note--inline">Not required</span> : null}
                 </div>
-                <select name="period" value={form.period} onChange={handleChange} disabled={!isXr}>
+                <select name="period" value={form.period} onChange={handleChange} disabled={!runsXr}>
                   <option value=""></option>
                   {periodOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -570,14 +736,14 @@ export default function App() {
               <label className="form__field form__field--compact">
                 <div className="form__label-row">
                   <span>From</span>
-                  {!isXr ? <span className="form__note form__note--inline">Not required</span> : null}
+                  {!runsXr ? <span className="form__note form__note--inline">Not required</span> : null}
                 </div>
                 <DatePicker
                   selected={fromISODate(startPicker)}
                   onChange={handleStartDateChange}
                   placeholderText="MM/DD/YYYY"
                   dateFormat="MM/dd/yyyy"
-                  disabled={!isXr}
+                  disabled={!runsXr}
                   className="date-input"
                 />
               </label>
@@ -585,14 +751,14 @@ export default function App() {
               <label className="form__field form__field--compact">
                 <div className="form__label-row">
                   <span>To</span>
-                  {!isXr ? <span className="form__note form__note--inline">Not required</span> : null}
+                  {!runsXr ? <span className="form__note form__note--inline">Not required</span> : null}
                 </div>
                 <DatePicker
                   selected={fromISODate(endPicker)}
                   onChange={handleEndDateChange}
                   placeholderText="MM/DD/YYYY"
                   dateFormat="MM/dd/yyyy"
-                  disabled={!isXr}
+                  disabled={!runsXr}
                   className="date-input"
                 />
               </label>
@@ -606,67 +772,166 @@ export default function App() {
             <button type="button" className="button" onClick={handleReset} disabled={isSubmitting}>
               Reset
             </button>
-          </div>
-        </form>
-
-        {jobId ? (
-          <div className="status status--info">
-            <strong>Job ID:</strong> <code>{jobId}</code> · Status: {jobStatus || "pending"}
             <button
               type="button"
-              className="button"
-              onClick={() => fetchJobStatus()}
-              disabled={!jobId}
+              className="button button--ghost"
+              onClick={() => setIsLogPanelOpen(true)}
             >
-              Refresh Status
+              View Logs
             </button>
           </div>
-        ) : null}
+        </form>
 
         {error ? <div className="alert alert--error">{error}</div> : null}
       </section>
 
       <section className="card card--stretch">
-        <header className="card__header">
-          <h2>Generated Reports</h2>
-          {patientLabel ? <span className="card__meta">{patientLabel}</span> : null}
+        <header className="card__header card__header--with-action">
+          <div>
+            <h2>Generated Reports</h2>
+            {isWaitingForResult ? <span className="card__meta">Automation is running...</span> : null}
+          </div>
+          {hasActiveJobs ? (
+            <button type="button" className="button button--ghost" onClick={handleRefreshStatuses}>
+              Refresh Status
+            </button>
+          ) : null}
         </header>
 
-        {isWaitingForResult ? <p className="status">Automation is running...</p> : null}
+        {hasSiteData ? (
+          <div className="site-results">
+            {visibleSiteKeys.map((site) => {
+              const jobInfo = siteJobs[site];
+              const result = resultsBySite[site];
+              const siteError = siteErrors[site];
+              const jobStatusLower = jobInfo?.status ? String(jobInfo.status).toLowerCase() : "";
+              let statusKey = "idle";
+              if (siteError) {
+                statusKey = "failed";
+              } else if (jobStatusLower) {
+                statusKey = jobStatusLower;
+              } else if (jobInfo?.jobId) {
+                statusKey = "pending";
+              }
+              if (statusKey === "in_progress") {
+                statusKey = "running";
+              }
+              const statusLabelMap = {
+                idle: "Waiting",
+                pending: "Pending",
+                queued: "Queued",
+                running: "Running",
+                completed: "Completed",
+                failed: "Failed",
+              };
+              const statusLabel = statusLabelMap[statusKey] || statusKey;
 
-        {result && result.patient_files?.length > 0 ? (
-          <div className="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>Report</th>
-                  <th>Open in S3</th>
-                  <th>Download</th>
-                </tr>
-              </thead>
-              <tbody>
-                {result.patient_files.map((file) => (
-                  <tr key={file.s3_file_url}>
-                    <td>{file.s3_file_name}</td>
-                    <td>
-                      <a href={file.s3_console_url} target="_blank" rel="noopener noreferrer">
-                        View
-                      </a>
-                    </td>
-                    <td>
-                      <a href={file.s3_file_download} target="_blank" rel="noopener noreferrer">
-                        Download
-                      </a>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+              return (
+                <div key={site} className="site-result">
+                  <button
+                    type="button"
+                    className="site-result__header"
+                    onClick={() => handleToggleSite(site)}
+                    aria-expanded={Boolean(expandedSites[site])}
+                  >
+                    <span className="site-result__title">{SITE_LABELS[site]}</span>
+                    <span className={`site-result__status site-result__status--${statusKey}`}>
+                      {statusLabel}
+                    </span>
+                  </button>
+                  {expandedSites[site] ? (
+                    <div className="site-result__body">
+                      {jobInfo?.jobId ? (
+                        <p className="status">
+                          Job ID: <code>{jobInfo.jobId}</code> · Status: {jobInfo.status || "pending"}
+                        </p>
+                      ) : null}
+                      {result?.patient_name ? (
+                        <p className="status">
+                          Patient: {result.patient_name}
+                          {result.report_date ? ` · ${result.report_date}` : ""}
+                        </p>
+                      ) : null}
+
+                      {result?.patient_files?.length ? (
+                        <div className="table-wrapper">
+                          <table>
+                            <thead>
+                              <tr>
+                                <th>Report</th>
+                                <th>Open in S3</th>
+                                <th>Download</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {result.patient_files.map((file) => (
+                                <tr key={file.s3_file_url}>
+                                  <td>{file.s3_file_name}</td>
+                                  <td>
+                                    <a href={file.s3_console_url} target="_blank" rel="noopener noreferrer">
+                                      View
+                                    </a>
+                                  </td>
+                                  <td>
+                                    <a href={file.s3_file_download} target="_blank" rel="noopener noreferrer">
+                                      Download
+                                    </a>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : jobInfo && jobStatusLower === "completed" && !siteError ? (
+                        <p className="status">No downloadable files returned.</p>
+                      ) : !siteError ? (
+                        <p className="status">Awaiting report generation...</p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
         ) : (
           <p className="status">No reports yet. Run an automation to populate this table.</p>
         )}
       </section>
+
+      {isLogPanelOpen ? (
+        <button type="button" className="log-panel__backdrop" onClick={() => setIsLogPanelOpen(false)} aria-label="Close logs overlay" />
+      ) : null}
+      <aside className={`log-panel ${isLogPanelOpen ? "log-panel--open" : ""}`}>
+        <div className="log-panel__header">
+          <div>
+            <h3>Automation Logs</h3>
+            <p className="log-panel__meta">Latest events from backend loggers</p>
+          </div>
+          <div className="log-panel__actions">
+            <button type="button" className="button button--ghost" onClick={fetchBackendLogs} disabled={isFetchingLogs}>
+              {isFetchingLogs ? "Refreshing..." : "Refresh"}
+            </button>
+            <button type="button" className="button" onClick={() => setIsLogPanelOpen(false)}>
+              Close
+            </button>
+          </div>
+        </div>
+        <div className="log-panel__body" ref={logListRef}>
+          {logError ? <p className="log-error-message">{logError}</p> : null}
+          {!logError && logs.length === 0 ? (
+            <p className="log-empty">No logs yet. Run an automation to start capturing events.</p>
+          ) : null}
+          {logs.map((entry) => (
+            <div key={`${entry.timestamp}-${entry.logger}-${entry.message}`} className={`log-entry log-entry--${entry.level}`}>
+              <div className="log-entry__meta">
+                <span className="log-entry__time">{entry.timestamp}</span>
+                <span className="log-entry__logger">{entry.logger}</span>
+              </div>
+              <p className="log-entry__message">{entry.message}</p>
+            </div>
+          ))}
+        </div>
+      </aside>
     </div>
   );
 }
